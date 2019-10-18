@@ -3,7 +3,7 @@
 # 18.10.2019
 # Author Klaus-Dieter Sohn
 #
-# inserts wait time comands G04 into gcode to achieve a minumum layer title
+# inserts wait time comands G4 into gcode to achieve a minumum layer title
 # default min Layertime is 90 seconds, can be overriden with a startcode, i.e. ";minLaerTime,120"
 # default waitingposition is x+20, y+20 z+5, can be overriden with a startcode, i.e. ";waitoffset,G27"
 # for S3D layer start is detected by the beginning withof prime tower (recommended size 12 x 12 mm)
@@ -42,7 +42,7 @@ class delaylayer:
         if (dl.minlayertime > dl.layertime):
             if not dl.first:
                 fo.write("%s\n" %(dl.waitoffset))
-                fo.write("G04 S%d\n" %(dl.minlayertime - dl.layertime))
+                fo.write("G4 S%d\n" %(dl.minlayertime - dl.layertime))
                 fo.write("G1 Z%.3f\n" %(dl.z))
                 fo.write("G1 X%.3f Y%.3f\n" %(dl.x,dl.y))
                 dl.printtime += dl.minlayertime

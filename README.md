@@ -1,7 +1,7 @@
 # modwait
 Python Script to add wait time for printing small parts
 
-inserts wait time comands G04 into gcode to achieve a minumum layer title
+inserts wait time comands G4 into gcode to achieve a minumum layer title
 default min Layertime is 90 seconds, can be overriden with a startcode, i.e. ";minLaerTime,120"
 default waitingposition is x+20, y+20 z+5, can be overriden with a startcode, i.e. ";waitoffset,G27"
 for S3D layer start is detected by the beginning withof prime tower (recommended size 12 x 12 mm)
