@@ -5,9 +5,10 @@
 #
 # inserts wait time comands G4 into gcode to achieve a minumum layer title
 # default min Layertime is 90 seconds, can be overriden with a startcode, i.e. ";minLaerTime,120"
-# default waitingposition is x+20, y+20 z+5, can be overriden with a startcode, i.e. ";waitoffset,G27"
+# default waitingposition is x+20 y+20 z+5 F1000
 # for S3D layer start is detected by the beginning withof prime tower (recommended size 12 x 12 mm)
 # for Prusaslicer layer start is detected by "AFTER_LAYER_CHANGE". If not preset, add this comment to custom code after layer change
+# Wait is applied to the first object in layer, so you way want to add a waist object (i.e. cylinder with 12 mm diameter) to catch the ooze
 # layer print time is calculatet from G1 codes
 # calling without parameters will use stdin and stdout, so script my be used for piping
 # first parameter is input file, second parameter is output file
@@ -21,7 +22,7 @@ import math
 class delaylayer:
     def __init__(dl):
         dl.minlayertime = 90
-        dl.waitoffset = "G1 dl.x-20,dl.y+20,dl.z+5 F1000"
+        dl.waitoffset = "dl.x-20,dl.y+20,dl.z+5,1000"
         dl.doit_prusa = False
         dl.doit_s3d = False
         dl.layertime = 0
@@ -41,7 +42,7 @@ class delaylayer:
         dl.doit_s3d = False
         if (dl.minlayertime > dl.layertime):
             if not dl.first:
-                fo.write("%s\n" %(dl.waitoffset))
+                exec("fo.write(\"G1 X%.3f Y%.3f Z%.3f F%d\\n\" %(" + dl.waitoffset + "))")
                 fo.write("G4 S%d\n" %(dl.minlayertime - dl.layertime))
                 fo.write("G1 Z%.3f\n" %(dl.z))
                 fo.write("G1 X%.3f Y%.3f\n" %(dl.x,dl.y))
@@ -100,10 +101,6 @@ class delaylayer:
             s1,s2,x = line.rpartition(',');
             dl.minlayertime = float(x)
             dl.maxlayertime = dl.minlayertime
-
-        if line.find('LAYEROFFSET') in(1,2):
-            s1,s2,x = line.rpartition(',');
-            dl.waitoffset = x
 
         if line.find('FEATURE PRIME PILLAR') != -1: # S3D mit Prime Pillar
             dl.doit_s3d = True	
