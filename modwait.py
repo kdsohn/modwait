@@ -11,7 +11,9 @@ import math
 
 class delaylayer:
     minlayertime = 90
-    waitoffset = "dl.x-20,dl.y+20,dl.z+5,1000"
+#    waitoffset1 = "dl.z+5,1000"
+#    waitoffset2 = "dl.x-20, dl.y+20, dl.z+5"
+    waitoffset2 = "dl.x-20, dl.y+20"
     doit_prusa = False
     doit_s3d = False
     layertime = 0
@@ -25,20 +27,24 @@ class delaylayer:
     alt_x = 0
     alt_y = 0
     alt_z = 0
+    total_wait = 0
+    mylines = []
     
-    def print_delay(dl,fo):
+    def print_delay(dl):
         dl.doit_prusa = False
         dl.doit_s3d = False
         x = int(dl.minlayertime - dl.layertime)
         if (x > 0):
             if not dl.first:
-                exec("fo.write(\"G1 X%.3f Y%.3f Z%.3f F%d\\n\" %(" + dl.waitoffset + "))")
-                fo.write("G4 S%d\n" %(x))
-                fo.write("G1 Z%.3f\n" %(dl.z))
-                fo.write("G1 X%.3f Y%.3f\n" %(dl.x,dl.y))
+#                exec("fo.write(\"G1 X%.3f Y%.3f Z%.3f\\n\" %(" + dl.waitoffset2 + "))")
+                exec("dl.mylines.append(\"G1 X%.3f Y%.3f\\n\" %(" + dl.waitoffset2 + "))")
+                dl.total_wait += x
+                dl.mylines.append("G4 S%d\n" %(x))
+#                fo.write("G1 X%.3f Y%.3f Z%.3f\n" %(dl.x,dl.y,dl.z))
+                dl.mylines.append("G1 X%.3f Y%.3f\n" %(dl.x,dl.y))
                 dl.printtime += dl.minlayertime
         else:
-            fo.write(";Layertime: %d\n" %(dl.layertime))
+            dl.mylines.append(";Layertime: %d\n" %(dl.layertime))
             if dl.layertime > dl.maxlayertime:
                 dl.maxlayertime = dl.layertime
             dl.printtime += dl.layertime
@@ -46,16 +52,21 @@ class delaylayer:
         dl.first = False
 
         
-    def process_line(dl,line,fo):
+    def process_line_1(dl,line):
     #    print(line,line.find('M106'))
 
-        fo.write(line)
+        line_ori = line
         line = line.upper()    
 
         if line.find('G28') != -1:
             dl.x = 0
             dl.y = 0
             dl.z = 0
+
+        if line.find('G1 E0.0000') != -1 and dl.doit_s3d == 1:
+            dl.print_delay()
+
+        dl.mylines.append(line_ori)
 
         if line.find('G1') == 0:
     #        print("Line",line)
@@ -85,7 +96,7 @@ class delaylayer:
             dl.alt_y = dl.y
             dl.alt_z = dl.z
             if dl.doit_prusa:
-                dl.print_delay(fo)
+                dl.print_delay()
 
         if line.find('MINLAYERTIME') in(1,2):
             s1,s2,x = line.rpartition(',');
@@ -97,9 +108,46 @@ class delaylayer:
         if line.find('AFTER_LAYER_CHANGE') != -1:   # Prusa entry after layer change
             dl.doit_prusa = True		
 
-        if line.find('G92') != -1 and dl.doit_s3d == 1:
-            dl.print_delay(fo)
-
+    def process_line_2(dl,line,fo):
+        line_ori = line
+        line = line.upper()    
+        if line.find('M73') == 0:
+            line_ori = ""
+            if line.find(';') != -1:
+                line1,comment = line.split(";",1);
+            else:
+                comment = ""
+                line1 = line
+            args = line1.split()
+            for arg in args:
+    #            print("Arg",arg)
+                s1,s2,val = arg.partition('R')
+                if s2 == 'R':
+                    R = float(val)
+                    arg = "R%d" % (R + dl.total_wait / 60)
+                s1,s2,val = arg.partition('S')
+                if s2 == 'S':
+                    S = float(val)
+                    arg = "S%d" % (S + dl.total_wait / 60)
+                line_ori += arg + " "
+            if comment != "":
+                line_ori += ";" + comment
+            line_ori = line_ori.rstrip() + "\n"
+            fo.write(line_ori)
+            return
+            
+        if line.find('G4') == 0:
+            if line.find(';') != -1:
+                line1,comment = line.split(";",1);
+            else:
+                line1 = line
+            args = line1.split()
+            for arg in args:
+    #            print("Arg",arg)
+                s1,s2,val = arg.partition('S')
+                if s2 == 'S':
+                    dl.total_wait -= float(val)
+        fo.write(line_ori)
 
 def main():	
     dl = delaylayer()
@@ -118,7 +166,11 @@ def main():
         
         
     for line in fi:
-        dl.process_line(line,fo)
+        dl.process_line_1(line)
+        
+    for line in dl.mylines:
+        dl.process_line_2(line,fo)
+        
     print("; Min layer time",int(dl.minlayertime),"seconds")
     print("; Print time",int(dl.printtime/60), "minutes =",float(dl.printtime/3600),"hours")
     print("; Max layer time",int(dl.maxlayertime),"seconds")
